@@ -4,7 +4,6 @@ import com.example.carteiraVirtual.controllers.CarteiraController;
 import com.example.carteiraVirtual.dtos.UsuarioDTO;
 import com.example.carteiraVirtual.models.Usuario;
 import com.example.carteiraVirtual.repositories.UsuarioRepository;
-import com.example.carteiraVirtual.util.CPFUtil;
 import com.example.carteiraVirtual.util.TipoPais;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,48 +31,45 @@ public class UsuarioService {
         return null;
     }
 
-    public UsuarioDTO criarUsuario(UsuarioDTO usuario) {
-        boolean maiorDeIdade = (LocalDate.now().getYear() - usuario.getDataNascimento().getYear()) >= 18;
-
-        String cpfValido = CPFUtil.validarCPF(usuario.getCpf())
-                ? CPFUtil.formatarCPF(usuario.getCpf())
-                : null;
+    public UsuarioDTO criarUsuario(UsuarioDTO body) {
+        boolean maiorDeIdade = (LocalDate.now().getYear() - body.getDataNascimento().getYear()) >= 18;
 
         TipoPais pais = null;
         for (TipoPais paisInfo : TipoPais.values())
-            if (paisInfo.getDescricao().equalsIgnoreCase(usuario.getPais())) {
+            if (paisInfo.getDescricao().equalsIgnoreCase(body.getPais())) {
                 pais = paisInfo;
                 break;
             }
 
-        if (cpfValido != null && pais != null && maiorDeIdade) {
+        if (pais != null && maiorDeIdade) {
             var usuarioModel = new Usuario();
-            usuarioModel.setNome(usuario.getNome());
-            usuarioModel.setCpf(cpfValido);
-            usuarioModel.setDataNascimento(usuario.getDataNascimento());
+            usuarioModel.setNome(body.getNome());
+            usuarioModel.setCpf(formatarCPF(body.getCpf()));
+            usuarioModel.setDataNascimento(body.getDataNascimento());
             usuarioModel.setPais(pais);
 
             Usuario usuarioCriado = usuarioRepository.save(usuarioModel);
             carteiraService.criarCarteira(usuarioCriado, pais.getMoeda());
-
             return converter(usuarioCriado);
         }
 
         throw new RuntimeException("erro ao criar usuário");
     }
 
+    public String formatarCPF(String cpf) {
+        cpf = cpf.replaceAll("[^0-9]", "");
+        return cpf.replaceAll("(\\d{3})(\\d{3})(\\d{3})(\\d{2})", "$1.$2.$3-$4");
+    }
+
     private UsuarioDTO converter(Usuario usuario) {
-        var usuarioD = new UsuarioDTO();
-        usuarioD.setId(usuario.getId());
-        usuarioD.setNome(usuario.getNome());
-        usuarioD.setCpf(usuario.getCpf());
-        usuarioD.setDataNascimento(usuario.getDataNascimento());
-        usuarioD.setPais(usuario.getPais().getDescricao());
+        var usuarioDto = new UsuarioDTO();
+        BeanUtils.copyProperties(usuario, usuarioDto);
+        usuarioDto.setPais(usuario.getPais().getDescricao());
         Link link = WebMvcLinkBuilder.linkTo(WebMvcLinkBuilder.methodOn(CarteiraController.class)
                 .buscarCarteira(usuario.getId())).withRel("Carteira virtual");
 
-        usuarioD.add(link);
-        return usuarioD;
+        usuarioDto.add(link);
+        return usuarioDto;
     }
 
 }
