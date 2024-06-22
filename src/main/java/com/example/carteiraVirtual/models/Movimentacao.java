@@ -34,6 +34,11 @@ public class Movimentacao {
     @JoinColumn(name = "carteira_id", referencedColumnName = "id")
     Carteira carteira;
 
+    @PrePersist
+    public void dataMovimentadacao() {
+        this.data = LocalDateTime.now();
+    }
+
 //    public Movimentacoes() {
 //        data = LocalDateTime.now();
 //    }
